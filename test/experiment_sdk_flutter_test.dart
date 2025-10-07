@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:experiment_sdk_flutter/local_storage.dart';
 import 'package:experiment_sdk_flutter/types/experiment_config.dart';
 import 'package:experiment_sdk_flutter/types/experiment_expose_tracking_context.dart';
 import 'package:experiment_sdk_flutter/types/experiment_exposure_tracking_provider.dart';
@@ -102,5 +103,62 @@ void main() {
     all = experiment.all();
 
     expect(all, {});
+  });
+
+  group('LocalStorage Tests', () {
+    test('Should handle basic put/get operations', () {
+      final localStorage = LocalStorage(apiKey: 'test-api-key');
+      final variant = ExperimentVariant(value: 'test-value');
+
+      localStorage.put('test-key', variant);
+      final retrieved = localStorage.get('test-key');
+
+      expect(retrieved?.value, equals('test-value'));
+    });
+
+    test('Should isolate data between different API keys', () {
+      final localStorage1 = LocalStorage(apiKey: 'key1');
+      final localStorage2 = LocalStorage(apiKey: 'key2');
+
+      final variant1 = ExperimentVariant(value: 'value1');
+      final variant2 = ExperimentVariant(value: 'value2');
+
+      localStorage1.put('same-key', variant1);
+      localStorage2.put('same-key', variant2);
+
+      expect(localStorage1.get('same-key')?.value, equals('value1'));
+      expect(localStorage2.get('same-key')?.value, equals('value2'));
+    });
+
+    test('Should not interfere with existing SharedPreferences values',
+        () async {
+      // Set up some existing SharedPreferences values
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_preference', 'existing_value');
+      await prefs.setString('app_setting', 'another_value');
+      await prefs.setInt('counter', 42);
+
+      // Create LocalStorage and add some data
+      final localStorage = LocalStorage(apiKey: 'test-key');
+      final variant = ExperimentVariant(value: 'experiment_value');
+      localStorage.put('experiment-key', variant);
+      await localStorage.save();
+
+      // Verify existing values are still intact
+      expect(prefs.getString('user_preference'), equals('existing_value'));
+      expect(prefs.getString('app_setting'), equals('another_value'));
+      expect(prefs.getInt('counter'), equals(42));
+
+      // Verify our experiment data is stored with prefix
+      final experimentKeys =
+          prefs.getKeys().where((key) => key.startsWith('ampli-'));
+      expect(experimentKeys.length, greaterThan(0));
+
+      // Verify we can still retrieve our experiment data
+      localStorage.clear();
+      await localStorage.load();
+      final retrieved = localStorage.get('experiment-key');
+      expect(retrieved?.value, equals('experiment_value'));
+    });
   });
 }
