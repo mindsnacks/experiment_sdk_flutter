@@ -15,8 +15,8 @@ class HttpClient {
   final bool _shouldRetry;
 
   HttpClient({required apiKey, bool? shouldRetry})
-      : _apiKey = apiKey,
-        _shouldRetry = shouldRetry ?? true;
+    : _apiKey = apiKey,
+      _shouldRetry = shouldRetry ?? true;
 
   bool _isRetry = false;
   Map<String, ExperimentFetchItem> fetchResult = {};
@@ -25,10 +25,21 @@ class HttpClient {
 
   /// Get function invoked on HTTP requests
   Future<void> get(QueryParameters queryParameters, [Duration? timeout]) async {
-    final uri = Uri.https(_baseUri, '/v1/vardata', queryParameters.toJson());
+    final uri = Uri.https(_baseUri, '/sdk/v2/vardata', {'v': '0'});
 
-    final request =
-        httpClient.get(uri, headers: {'Authorization': 'Api-Key $_apiKey'});
+    // Encode user data as JSON, then base64 encode it for the header
+    final userDataJson = jsonEncode(queryParameters.toJson());
+    final userDataBytes = utf8.encode(userDataJson);
+    final userDataBase64 = base64Encode(
+      userDataBytes,
+    ).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+
+    final headers = {
+      'Authorization': 'Api-Key $_apiKey',
+      'X-Amp-Exp-User': userDataBase64,
+    };
+
+    final request = httpClient.get(uri, headers: headers);
 
     if (timeout != null) {
       request.timeout(
@@ -48,7 +59,7 @@ class HttpClient {
         throw Exception({
           'message': 'Failed to fetch through SDK!',
           'status': response.statusCode,
-          'trace': data
+          'trace': data,
         });
       }
 
@@ -56,8 +67,9 @@ class HttpClient {
       get(queryParameters, timeout);
     }
 
-    Map<String, dynamic> data =
-        jsonDecode(const Utf8Decoder().convert(response.bodyBytes));
+    Map<String, dynamic> data = jsonDecode(
+      const Utf8Decoder().convert(response.bodyBytes),
+    );
 
     data.forEach((key, value) {
       fetchResult[key] = ExperimentFetchItem.fromMap(value);
