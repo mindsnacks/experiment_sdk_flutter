@@ -17,29 +17,27 @@ Amplitude Experiment implementation for Flutter. This is a non official package 
 
 `fetch`: Fetch experiments assigned to user. You can use some properties as below:
 <br />
-`variant`: Fetch assigned variant for each experiment. You can use some properties as below:
+`variant`: Fetch assigned variant for each experiment. Returns synchronously from cached data.
 <br />
-`clear`: Clear all SDK cache
+`all`: Get all experiments and variants assigned to this user. Returns synchronously from cached data.
 <br />
-`exposure` (works only with **initializeWithAmplitude** or by providing a custom **exposureTrackingProvider**): Track exposure for assigned variant in assigned experiment
+`clear`: Clear all SDK cache (async operation)
+<br />
+`exposure`: Track exposure for assigned variant in assigned experiment (requires custom **exposureTrackingProvider**)
 
 ## Getting started
 
 In order to start using this package you **must** have properly defined an Amplitude Account and Project as well Amplitude Experiment. When you have already setted your experiment, you should create a `deployment` and this api key is the artifact that this SDK uses.
 
-### **The init functions**
+### **Initialization**
 
-`initialize`: This function is going to return an ExperimentClient instance that you should use to start instrumentation. Look at this:
-
-```dart
-Experiment.initialize({ required String apiKey, ExperimentConfig? experimentConfig });
-```
-
-`initializeWithAmplitude`: This function is going to return the same ExperimentClient instance configs but will try to link an Amplitude Analytic as exposure tracker.
-NOTE: This will work only if you've already installed and setup an analytics plugin
+`initialize`: This async function returns an ExperimentClient instance that you should use to start instrumentation. The initialization loads cached data from local storage.
 
 ```dart
-Experiment.initializeWithAmplitude({ required String apiKey, ExperimentConfig? experimentConfig });
+final experiment = await Experiment.initialize(
+  apiKey: 'your-api-key',
+  config: ExperimentConfig(...)
+);
 ```
 
 #### **Config Object**
@@ -48,53 +46,80 @@ Experiment.initializeWithAmplitude({ required String apiKey, ExperimentConfig? e
 class ExperimentConfig {
   final bool? debug;
   final String? instanceName;
-  final ExperimentVariant? fallbackVariant;
-  final ExperimentVariantSource? source;
   final int? fetchTimeoutMillis;
   final bool? retryFetchOnFailure;
   final bool? automaticExposureTracking;
   final ExperimentExposureTrackingProvider? exposureTrackingProvider;
 
-  ExperimentConfig(
-      {this.debug = false,
-      this.instanceName = 'default-instance',
-      this.fallbackVariant,
-      this.source,
-      this.fetchTimeoutMillis,
-      this.retryFetchOnFailure,
-      this.automaticExposureTracking = false,
-      this.exposureTrackingProvider});
-};
+  ExperimentConfig({
+    this.debug = false,
+    this.instanceName = '\$default_instance',
+    this.fetchTimeoutMillis,
+    this.retryFetchOnFailure,
+    this.automaticExposureTracking = false,
+    this.exposureTrackingProvider,
+  });
+}
 ```
+
+**Note**: `ExperimentExposureTrackingProvider` is an abstract class with no default implementation. You must implement both `exposure()` and `getContext()` methods if you want to use exposure tracking.
 
 ## Usage
 
-To `fetch` experiments for user:
+### Initialize the SDK
 
 ```dart
-Experiment.fetch({ String? userId, String? deviceId, Map<String, dynamic>? userProperties });
+final experiment = await Experiment.initialize(
+  apiKey: 'your-api-key',
+  config: ExperimentConfig(
+    debug: true,
+    automaticExposureTracking: true,
+    exposureTrackingProvider: MyCustomExposureTrackingProvider(),
+  ),
+);
 ```
 
-To get `variant` for specific experiment:
+### Fetch experiments for user
+
 ```dart
-Experiment.variant(String flagKey);
+await experiment.fetch(
+  userId: 'user-123',
+  deviceId: 'device-456',
+  userProperties: {'plan': 'premium'},
+);
 ```
 
-To get all `variants` and `experiments` that this user is assigned to:
+### Get variant for specific experiment (synchronous)
+
 ```dart
-Experiment.all();
+final variant = experiment.variant('my-flag-key');
+if (variant != null) {
+  print('Variant value: ${variant.value}');
+}
 ```
 
-To `clear` all cache data:
+### Get all variants and experiments (synchronous)
+
 ```dart
-Experiment.clear();
+final allVariants = experiment.all();
+allVariants.forEach((key, variant) {
+  print('$key: ${variant.value}');
+});
 ```
 
-To track `exposure` event:
+### Clear all cache data (async)
+
 ```dart
-Experiment.exposure(String flagKey);
-``` 
-NOTE: works only with **initializeWithAmplitude** or by providing a custom **exposureTrackingProvider**
+await experiment.clear();
+```
+
+### Track exposure event (async)
+
+```dart
+await experiment.exposure('my-flag-key');
+```
+
+**Note**: Exposure tracking requires a custom `ExperimentExposureTrackingProvider` implementation. The provider must implement both `exposure()` and `getContext()` methods.
 
 ## Additional information
 This package is basically an wrappper to [Experiment Evaluation API](https://www.docs.developers.amplitude.com/experiment/apis/evaluation-api/) maintened by Product Minds team. If you have any problem with this license or usage, please mail to antonny.santos@productminds.io.

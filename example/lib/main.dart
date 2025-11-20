@@ -1,5 +1,6 @@
 import 'package:amplitude_flutter/events/base_event.dart';
 import 'package:experiment_sdk_flutter/experiment_sdk_flutter.dart';
+import 'package:experiment_sdk_flutter/experiment_client.dart';
 import 'package:amplitude_flutter/amplitude.dart';
 import 'package:amplitude_flutter/configuration.dart';
 import 'package:experiment_sdk_flutter/types/experiment_config.dart';
@@ -56,14 +57,27 @@ class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
   final amplitude =
       Amplitude(Configuration(apiKey: '2b82f618e4100e931f2b1730b3c7ca92'));
-  final experiment = Experiment.initializeWithAmplitude(
-      apiKey: 'client-TgXx6plnArNPL2ck4sKc6QtAJ8lbu8nQ',
-      config: ExperimentConfig(automaticExposureTracking: true));
+  ExperimentClient? _experiment;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeExperiment();
+  }
+
+  Future<void> _initializeExperiment() async {
+    _experiment = await Experiment.initialize(
+        apiKey: 'client-TgXx6plnArNPL2ck4sKc6QtAJ8lbu8nQ',
+        config: ExperimentConfig(automaticExposureTracking: true));
+  }
 
   void _incrementCounter() async {
+    if (_experiment == null) {
+      await _initializeExperiment();
+    }
     var deviceId = await amplitude.getDeviceId();
-    await experiment.fetch(deviceId: deviceId);
-    final experimentVariant = experiment.variant('flutter-sdk-demo');
+    await _experiment!.fetch(deviceId: deviceId);
+    final experimentVariant = await _experiment!.variant('flutter-sdk-demo');
 
     amplitude.track(
       BaseEvent(

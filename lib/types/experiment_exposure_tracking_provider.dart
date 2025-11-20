@@ -3,9 +3,7 @@ import 'package:experiment_sdk_flutter/types/experiment_variant.dart';
 
 abstract class ExperimentExposureTrackingProvider {
   Future<void> exposure(
-      String flagkey, ExperimentVariant? variant, String instanceName) async {}
+      String flagkey, ExperimentVariant? variant, String instanceName);
 
-  Future<ExposureTrackingContext> getContext(String instanceName) async {
-    return ExposureTrackingContext(); // or ExposureTrackingContext.empty() if you define that
-  }
+  Future<ExposureTrackingContext> getContext(String instanceName);
 }
