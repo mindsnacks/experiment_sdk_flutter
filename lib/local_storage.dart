@@ -9,36 +9,41 @@ class LocalStorage {
   final String namespace;
 
   @protected
+  final SharedPreferences _prefs;
+
+  @protected
   Map<String, ExperimentVariant> map = {};
 
-  LocalStorage({required String apiKey}) : namespace = _getNamespace(apiKey);
+  LocalStorage._({required String apiKey, required SharedPreferences prefs})
+      : namespace = _getNamespace(apiKey),
+        _prefs = prefs;
 
-  void put(String key, ExperimentVariant value) {
-    map[key] = value;
+  static Future<LocalStorage> create({required String apiKey}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final storage = LocalStorage._(apiKey: apiKey, prefs: prefs);
+    await storage._load();
+    return storage;
   }
 
   ExperimentVariant? get(String key) {
-    final variant = map[key];
-
-    return variant;
-  }
-
-  void clear() {
-    map = {};
+    return map[key];
   }
 
   Map<String, ExperimentVariant> getAll() {
-    return map;
+    return Map<String, ExperimentVariant>.from(map);
   }
 
-  Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> replaceAll(Map<String, ExperimentVariant> newMap) async {
+    map = Map<String, ExperimentVariant>.from(newMap);
+    await _save();
+  }
 
-    final keys = prefs.getKeys().where((key) => key.startsWith(namespace));
+  Future<void> _load() async {
+    final keys = _prefs.getKeys().where((key) => key.startsWith(namespace));
     Map<String, ExperimentVariant> newMap = {};
 
     for (String key in keys) {
-      dynamic value = prefs.get(key);
+      dynamic value = _prefs.get(key);
 
       // Strip the namespace prefix to get the original key
       final unprefixedKey =
@@ -49,13 +54,13 @@ class LocalStorage {
     map = newMap;
   }
 
-  Future<void> save() async {
-    final prefs = await SharedPreferences.getInstance();
-
+  Future<void> _save() async {
+    final futures = <Future<bool>>[];
     map.forEach((key, value) {
       final prefixedKey = '$namespace-$key';
-      prefs.setString(prefixedKey, value.toJsonAsString());
+      futures.add(_prefs.setString(prefixedKey, value.toJsonAsString()));
     });
+    await Future.wait(futures);
   }
 
   static String _getNamespace(String apiKey) {

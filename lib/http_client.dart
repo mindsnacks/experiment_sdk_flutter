@@ -14,7 +14,7 @@ class HttpClient {
   final String _baseUri = 'api.lab.amplitude.com';
   final bool _shouldRetry;
 
-  HttpClient({required apiKey, bool? shouldRetry})
+  HttpClient({required String apiKey, bool? shouldRetry})
       : _apiKey = apiKey,
         _shouldRetry = shouldRetry ?? true;
 
